@@ -2,6 +2,10 @@ import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 import time
 import random
+import generate_question 
+import generate_answer
+from transformers import pipeline
+
 
 st.title("🔥불을 꺼보세요!!🔥")
 
@@ -67,13 +71,19 @@ def generate_question_screen(map_arr, img_arr, map_img, text):
     opaque_draw.rectangle([(0, 0), opaque_size], fill=(0, 0, 0, 128))
     opaque_map = Image.alpha_composite(map_img, opaque_img)
 
+    new_text = ""
+    for i in range(len(text)):
+        new_text += text[i]
+        if i % 50 == 49:
+            new_text += '\n'
+
+
     text_draw = ImageDraw.Draw(opaque_map)
     font_path = "Fonts/NotoSansKR-Black.ttf"
-    font = ImageFont.truetype(font_path, 50)
+    font = ImageFont.truetype(font_path, 30)
     text_color = (255, 255, 255, 255)
-    text_draw.text((100, 100), text, fill=text_color, font=font)
+    text_draw.text((100, 100), new_text, fill=text_color, font=font)
     return opaque_map
-
 
 img_path_arr = [
     "Asset/background.png",
@@ -89,6 +99,10 @@ if "is_rain" not in st.session_state:
 player_img = load_image("Asset/clover.png")
 if "player_loc" not in st.session_state:
     st.session_state.player_loc = [0, 6]
+if "user_input" not in st.session_state:
+        st.session_state.user_input = ""
+if "is_wrong" not in st.session_state:
+    st.session_state.is_wrong = False
 map_img = generate_map(st.session_state.map_arr, img_arr)
 player_size = player_img.size[0]
 
@@ -159,12 +173,8 @@ with col3:
             ]
             == 3
         ):
-            rain_loc = [
-                (st.session_state.player_loc[0] + 1) * rain_size,
-                st.session_state.player_loc[1] * rain_size,
-            ]
+            
             st.session_state.is_rain = "RIGHT"
-            map_img.paste(rain_img, rain_loc, rain_img)
     if st.button("RIGHT"):
         if st.session_state.player_loc[0] + 1 >= len(st.session_state.map_arr[0]):
             pass
@@ -183,6 +193,22 @@ with col4:
 player_loc = [loc * player_size for loc in st.session_state.player_loc]
 map_img.paste(player_img, player_loc, player_img)
 
+def generate_rain():
+    if st.session_state.is_rain == "LEFT":
+        st.session_state.map_arr[st.session_state.player_loc[1]][
+            st.session_state.player_loc[0] - 1
+        ] = 2
+    else:
+        st.session_state.map_arr[st.session_state.player_loc[1]][
+            st.session_state.player_loc[0] + 1
+        ] = 2
+    st.session_state.is_rain = False
+    st.session_state.point += 1
+    rain_loc = [
+                (st.session_state.player_loc[0] + 1) * rain_size,
+                st.session_state.player_loc[1] * rain_size,
+    ]
+    map_img.paste(rain_img, rain_loc, rain_img)
 
 if (
     st.session_state.map_arr[st.session_state.player_loc[1]][
@@ -197,21 +223,37 @@ if (
         st.session_state.player_loc[1] += 1
     st.rerun()
 if st.session_state.is_rain:
-    time.sleep(0.5)
-    if st.session_state.is_rain == "LEFT":
-        st.session_state.map_arr[st.session_state.player_loc[1]][
-            st.session_state.player_loc[0] - 1
-        ] = 2
+    
+    st.session_state.user_input = st.chat_input("")
+    
+    if st.session_state.user_input:
+        if st.session_state.is_wrong:
+            text = '오답멘트생성'
+            st.session_state.is_rain = False
+        else:
+            text = generate_answer.generate_answer()
+            sentiment_analysis = pipeline("sentiment-analysis", model="monologg/koelectra-base-finetuned-nsmc")
+            result = sentiment_analysis(text)
+            st.write(result)
+            if result[0]["label"] == "positive":
+                #generate_rain()'
+                st.session_state.is_wrong = False 
+                st.session_state.is_rain = False
+            else:
+                st.session_state.is_wrong = True
     else:
-        st.session_state.map_arr[st.session_state.player_loc[1]][
-            st.session_state.player_loc[0] + 1
-        ] = 2
-    st.session_state.is_rain = False
-    st.session_state.point += 1
+        if st.session_state.is_wrong:
+            text = "오답시 문제 다시풀기"
+        else:
+            text = generate_question.generate_question()
     question_screen = generate_question_screen(
-        st.session_state.map_arr, img_arr, map_img, "안녕하세요 반갑습니다"
+        st.session_state.map_arr, img_arr, map_img, text
     )
-
     st.image(question_screen)
+
 else:
+    if st.session_state.user_input and not st.session_state.is_wrong:
+        generate_rain()
+        st.session_state.user_input = ""
+        
     st.image(map_img)
