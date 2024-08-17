@@ -17,14 +17,6 @@ def generate_answer():
         st.session_state["messages"] = []
     if "store" not in st.session_state:
         st.session_state["store"] = dict()
-    session_id = 112
-    def get_session_history(session_id):
-        if session_id not in st.session_state["store"]:
-            st.session_state["store"][session_id] = ChatMessageHistory()
-        return st.session_state["store"][session_id]
-        
-
-
 
     with open("Prompts/answer.prompt", "r", encoding="utf-8") as file:
         prompt = file.read().strip()
@@ -32,21 +24,15 @@ def generate_answer():
     custom_prompt = ChatPromptTemplate(
         messages=[
             SystemMessagePromptTemplate.from_template(system_prompt),
-            MessagesPlaceholder(variable_name="history"),
-            HumanMessagePromptTemplate.from_template("{answer}")
+            HumanMessagePromptTemplate.from_template("{answer}, {definition}")
         ]
     )
     llm = ChatOpenAI(name="gpt-4o-mini")
     chain = custom_prompt | llm
-    chain_with_runnable = RunnableWithMessageHistory(
-        chain,
-        get_session_history,
-        input_messages_key="answer",
-        history_messages_key="history",
-    )
-
-    response = chain_with_runnable.invoke({"answer" : st.session_state.user_input}, config={"configurable": {"session_id": session_id}})
+    response = chain.invoke({"answer" : st.session_state.user_input,
+                             "definition" : st.session_state.word_data["senseinfo"]["definition"]})
+    
     st.session_state["messages"].append(ChatMessage(role="user", content=st.session_state.user_input))
     st.session_state["messages"].append(ChatMessage(role="assistant", content=response.content))
+    st.write(st.session_state.user_input)
     return(st.session_state["messages"][-1].content)
-    # st.write(st.session_state["messages"])

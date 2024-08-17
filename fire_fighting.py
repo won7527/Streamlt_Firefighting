@@ -38,9 +38,12 @@ if "land_arr" not in st.session_state:
             elif st.session_state.map_arr[y][x] == 3:
                 st.session_state.fire_arr.append((y, x))
 
-if st.session_state.move_count >= 3:
+def generate_fire():
     fire = random.choice(st.session_state.land_arr)
     st.session_state.map_arr[fire[0]][fire[1]] = 3
+
+if st.session_state.move_count >= 3:
+    generate_fire()
     st.session_state.move_count = 0
 
 
@@ -103,6 +106,13 @@ if "user_input" not in st.session_state:
         st.session_state.user_input = ""
 if "is_wrong" not in st.session_state:
     st.session_state.is_wrong = False
+
+
+if "is_question" not in st.session_state:
+    st.session_state.is_question = False
+
+
+
 map_img = generate_map(st.session_state.map_arr, img_arr)
 player_size = player_img.size[0]
 
@@ -113,6 +123,7 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     if st.button("L_EXTINGUISH"):
+    
         if (
             st.session_state.map_arr[st.session_state.player_loc[1]][
                 st.session_state.player_loc[0] - 1
@@ -124,6 +135,7 @@ with col1:
                 st.session_state.player_loc[1] * rain_size,
             ]
             st.session_state.is_rain = "LEFT"
+            st.session_state.is_question = True
             map_img.paste(rain_img, rain_loc, rain_img)
     if st.button("LEFT"):
         if st.session_state.player_loc[0] - 1 < 0:
@@ -134,6 +146,8 @@ with col1:
             ]
             == 0
         ):
+            pass
+        elif st.session_state.is_rain:
             pass
         else:
             st.session_state.player_loc[0] -= 1
@@ -149,6 +163,8 @@ with col2:
             == 0
         ):
             pass
+        elif st.session_state.is_rain:
+            pass
         else:
             st.session_state.player_loc[1] -= 1
         dir = True
@@ -162,11 +178,14 @@ with col2:
             == 0
         ):
             pass
+        elif st.session_state.is_rain:
+            pass
         else:
             st.session_state.player_loc[1] += 1
         dir = False
 with col3:
     if st.button("R_EXTINGUISH"):
+        
         if (
             st.session_state.map_arr[st.session_state.player_loc[1]][
                 st.session_state.player_loc[0] + 1
@@ -175,6 +194,7 @@ with col3:
         ):
             
             st.session_state.is_rain = "RIGHT"
+            st.session_state.is_question = True
     if st.button("RIGHT"):
         if st.session_state.player_loc[0] + 1 >= len(st.session_state.map_arr[0]):
             pass
@@ -184,6 +204,8 @@ with col3:
             ]
             == 0
         ):
+            pass
+        elif st.session_state.is_rain:
             pass
         else:
             st.session_state.player_loc[0] += 1
@@ -198,17 +220,23 @@ def generate_rain():
         st.session_state.map_arr[st.session_state.player_loc[1]][
             st.session_state.player_loc[0] - 1
         ] = 2
+        rain_loc = [
+                (st.session_state.player_loc[0] - 1) * rain_size,
+                st.session_state.player_loc[1] * rain_size,
+        ]
     else:
         st.session_state.map_arr[st.session_state.player_loc[1]][
             st.session_state.player_loc[0] + 1
         ] = 2
-    st.session_state.is_rain = False
-    st.session_state.point += 1
-    rain_loc = [
+        rain_loc = [
                 (st.session_state.player_loc[0] + 1) * rain_size,
                 st.session_state.player_loc[1] * rain_size,
-    ]
+        ]
+
     map_img.paste(rain_img, rain_loc, rain_img)
+    st.session_state.is_rain = False
+    st.session_state.point += 1
+    
 
 if (
     st.session_state.map_arr[st.session_state.player_loc[1]][
@@ -216,34 +244,33 @@ if (
     ]
     == 1
 ):
-    time.sleep(0.5)
+    # time.sleep(1)
     if dir:
         st.session_state.player_loc[1] -= 1
     else:
         st.session_state.player_loc[1] += 1
     st.rerun()
-if st.session_state.is_rain:
+
+if st.session_state.is_question:
     
     st.session_state.user_input = st.chat_input("")
-    
     if st.session_state.user_input:
-        if st.session_state.is_wrong:
-            text = '오답멘트생성'
-            st.session_state.is_rain = False
+        text = generate_answer.generate_answer()
+        sentiment_analysis = pipeline("sentiment-analysis", model="monologg/koelectra-base-finetuned-nsmc")
+        result = sentiment_analysis(text)
+        st.write(result)
+        if result[0]["label"] == "positive":
+            generate_rain()
+            st.session_state.is_wrong = False 
         else:
-            text = generate_answer.generate_answer()
-            sentiment_analysis = pipeline("sentiment-analysis", model="monologg/koelectra-base-finetuned-nsmc")
-            result = sentiment_analysis(text)
-            st.write(result)
-            if result[0]["label"] == "positive":
-                #generate_rain()'
-                st.session_state.is_wrong = False 
-                st.session_state.is_rain = False
-            else:
-                st.session_state.is_wrong = True
+            generate_fire()
+            st.session_state.is_rain = False
+            st.session_state.is_wrong = True
+        st.session_state.is_question = False
     else:
         if st.session_state.is_wrong:
-            text = "오답시 문제 다시풀기"
+            st.session_state.is_wrong = False
+            text = generate_question.generate_question_provoke()
         else:
             text = generate_question.generate_question()
     question_screen = generate_question_screen(
@@ -252,8 +279,4 @@ if st.session_state.is_rain:
     st.image(question_screen)
 
 else:
-    if st.session_state.user_input and not st.session_state.is_wrong:
-        generate_rain()
-        st.session_state.user_input = ""
-        
     st.image(map_img)

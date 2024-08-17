@@ -10,7 +10,7 @@ def select_word():
         st.session_state.file_list = sorted(st.session_state.file_list, key=lambda file_name: int(file_name[file_name.find('_') + 1 : file_name.find('.')]))
     question_num = random.randint(0, 1180246)
     file_name = st.session_state.file_list[question_num // 50000]
-    file_path = os.path.join("data", file_name)
+    file_path = os.path.join("Data", file_name)
     st.write(f"랜덤 넘버 : {question_num}")
     st.write(file_name)
     with open(file_path, 'r', encoding="utf-8") as file:
