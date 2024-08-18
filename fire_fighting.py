@@ -4,7 +4,7 @@ import time
 import random
 import generate_question 
 import generate_answer
-from transformers import pipeline
+
 
 
 st.title("🔥불을 꺼보세요!!🔥")
@@ -255,11 +255,8 @@ if st.session_state.is_question:
     
     st.session_state.user_input = st.chat_input("")
     if st.session_state.user_input:
-        text = generate_answer.generate_answer()
-        sentiment_analysis = pipeline("sentiment-analysis", model="monologg/koelectra-base-finetuned-nsmc")
-        result = sentiment_analysis(text)
-        st.write(result)
-        if result[0]["label"] == "positive":
+        score = generate_answer.generate_answer()
+        if score > 50:
             generate_rain()
             st.session_state.is_wrong = False 
         else:
@@ -267,6 +264,7 @@ if st.session_state.is_question:
             st.session_state.is_rain = False
             st.session_state.is_wrong = True
         st.session_state.is_question = False
+        text = st.session_state["messages"][-1].content
     else:
         if st.session_state.is_wrong:
             st.session_state.is_wrong = False
